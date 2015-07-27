@@ -16,9 +16,9 @@ Source: http://www.urbandictionary.com/define.php?term=Fagrant
 Currently, the following functionality is implemented in fagrant.
 
   - Creating a VM cloned from an existing VM
-  - Using an existing VM as is with fagrant
+  - Using an existing VM as is with fagrant (although SSH and/or mounting might not work)
   - SSH into the VM
-  - Mounts local folder on the VM
+  - Mounts current working directory on the VM
   - Halting the VM
   - Destroying the VM
 
@@ -64,6 +64,13 @@ groupadd admin
 useradd -m -g admin -s /bin/bash fagrant
 usermod -a -G users fagrant
 passwd fagrant
+```
+
+To mount the current working directory into the fagrant VM, you'll have to install the Virtualbox Guest Additions. To make your life, once again, easier:
+```
+pacman -S virtualbox-guest-utils
+echo "vboxguest" > /etc/modules-load.d/virtualbox.conf 
+echo "vboxsf" >> /etc/modules-load.d/virtualbox.conf 
 ```
 
 ## TODO
