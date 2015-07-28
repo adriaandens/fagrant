@@ -3,6 +3,7 @@ my $cwd_vm;
 if(-e 'FagrantFile') {
     open(FH, '< FagrantFile');
     $cwd_vm = <FH>;
+    chomp($cwd_vm);
     close(FH);
     # Check if VM exists...
     if(!vm_state($cwd_vm, 'exists')) {
@@ -10,6 +11,7 @@ if(-e 'FagrantFile') {
         exit 1;
     }
 }
+
 sub vm_state {
     my ($vm_name, $state) = @_;
 
@@ -21,7 +23,7 @@ sub vm_state {
     foreach(@lines) {
         /^"(.+)"\s{1}[^"]+$/;
         if($vm_name eq $1) {
-            $found = 1;
+            $found = $vm_name;
             break;
         }
     }
@@ -35,50 +37,53 @@ sub init {
         return;
     }
     if(vm_state($ARGV[1], "exists")) {
-        # Clone it with random name
-        $cwd_vm = $1 . "_" . time();
+        $cwd_vm = $ARGV[1] . "_" . time();
         print "Cloning VM with name '$cwd_vm'\n";
-        `VBoxManage clonevm $1 --name $cwd_vm`;
+        print `VBoxManage clonevm $ARGV[1] --name $cwd_vm`;
         my @vmfolder = `VBoxManage list systemproperties`;
         my @vmdir = map {/Default machine folder:\s+(.+)$/;$1} grep {/^Default machine folder:/} @vmfolder;
         my $vmd = $vmdir[0];
-        `VBoxManage registervm "$vmd/$cwd_vm/cwd_vm.vbox"`;
+        print `VBoxManage registervm "${vmd}/${cwd_vm}/${cwd_vm}.vbox"`;
         
         # Store mapping in file in current working directory
-        open(FH, "> FagrantFile") and print FH $name and close(FH);
+        open(FH, "> FagrantFile") and print FH $cwd_name and close(FH);
     } else {
         print "That VM doesn't exist...\n";
     }
 }
 
 sub up {
-    # Boot that VM
-    # Setup ports
+    if($cwd_vm) {
+        `VBoxHeadless --startvm "$cwd_vm"`;
+        `VBoxManage modifyvm "$cwd_vm" --natpf1 "guestssh,tcp,,2222,,22"`;
+        `VBoxManage sharedfolder add "$cwd_vm" --name "guestfolder" --hostpath $ENV{PWD}`
+    }
 }
 
 sub ssh {
-    # Check if VM is running
+    if($cwd_vm && vm_state($cwd_vm, 'running')) {
     # SSH into VM
     # Give terminal to user
+    }
 }
 
 sub halt {
     # Maybe do something graceful first?
-
-    if(vm_state($cwd_vm, 'running')) {
-        `vboxmanage controlvm $cwd_vm poweroff`;
+    if($cwd_vm && vm_state($cwd_vm, 'running')) {
+        `VBoxManage controlvm $cwd_vm poweroff`;
     }
 }
 
 sub destroy {
-    if(vm_state($cwd_vm, 'running')) {
+    if($cwd_vm && vm_state($cwd_vm, 'running')) {
         halt();
     }
-
-    # Delete VM
-    my @lines = `VBoxManage showvminfo $cwd_vm`;
-
-    unlink('FagrantFile');
+    #my @lines = `VBoxManage showvminfo $cwd_vm`;
+    #my @hdds = map {/UUID: ([^\)]+)\)/;$1} grep {/(IDE|SATA).+UUID:\s+([^\)]+)/i;} @lines;
+    if($cwd_vm) {
+        `VBoxManage unregistervm $cwd_vm --delete`;
+        unlink('FagrantFile');
+    }
 }
 
 sub help {
