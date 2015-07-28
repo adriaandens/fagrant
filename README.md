@@ -48,7 +48,7 @@ And shutting down:
 $ fagrant halt
 ```
 
-Destroying:
+Shutting down and deleting the VM:
 ```
 $ fagrant destroy
 ```
@@ -63,17 +63,21 @@ $ visudo
 
 where "admin" is the group name of which fagrant is a member; for completeness sake:
 ```
-groupadd admin
-useradd -m -g admin -s /bin/bash fagrant
-usermod -a -G users fagrant
-passwd fagrant
+# groupadd admin
+# useradd -m -g admin -s /bin/bash fagrant
+# usermod -a -G users fagrant
+# usermod -a -G vboxsf fagrant
+# passwd fagrant
 ```
 
 To mount the current working directory into the fagrant VM, you'll have to install the Virtualbox Guest Additions. To make your life, once again, easier:
 ```
-pacman -S virtualbox-guest-utils
-echo "vboxguest" > /etc/modules-load.d/virtualbox.conf 
-echo "vboxsf" >> /etc/modules-load.d/virtualbox.conf 
+# pacman -S virtualbox-guest-utils
+# mkdir /fagrant
+# VBoxControl guestproperty set /VirtualBox/GuestAdd/SharedFolders/MountDir /fagrant/
+# echo "sudo mount -t vboxsf guestfolder /fagrant" >> /home/fagrant/.bashrc
+# echo "vboxguest" > /etc/modules-load.d/virtualbox.conf 
+# echo "vboxsf" >> /etc/modules-load.d/virtualbox.conf 
 ```
 
 ## TODO
