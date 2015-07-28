@@ -6,9 +6,12 @@ Vagrant is slow, bloated and has the weirdest problems (with Virtualbox). Inspir
 > 
 >    A fake vagrant.
 > 
-> "Jeromy is too lazy to work 9-5, so he puts on dirty clothes and stands on a corner begging for change."
-> "That's pretty lame."
-> "Dude, he makes more than minimum wage as a fagrant." 
+> > "Jeromy is too lazy to work 9-5, so he puts on dirty clothes and stands on a corner begging for change."
+> > 
+> > "That's pretty lame."
+> > 
+> > "Dude, he makes more than minimum wage as a fagrant." 
+
 Source: http://www.urbandictionary.com/define.php?term=Fagrant
 
 ## Functionality
