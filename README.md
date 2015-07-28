@@ -85,3 +85,4 @@ To mount the current working directory into the fagrant VM, you'll have to insta
   - Make sure two VMs are not using the same SSH port
   - Make the SSH key pair configurable?
   - Login by default as Fagrant user, but use root as backup
+  - Add revert option to go back to snapshot before deleting FagrantFile (fagrant destroy --revert)
