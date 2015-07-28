@@ -1,4 +1,4 @@
-#!/bin/perl
+#!/usr/bin/perl
 
 print "\nPlease install VirtualBox first...\n\n" if system("VBoxManage -v > /dev/null 2>&1") != 0;
 my $cwd_vm;
@@ -78,7 +78,11 @@ sub halt {
 sub destroy {
     if($cwd_vm) {
         halt() if vm_state($cwd_vm, 'running');
-        `VBoxManage unregistervm $cwd_vm --delete` if not defined $ARGV[1];
+        if(not defined $ARGV[1]) {
+            print "Not so fast José! U sure? "; # I know myself, I need this.
+            chomp(my $w = <STDIN>);
+            `VBoxManage unregistervm $cwd_vm --delete` if $w =~ /^ye?s?/i;
+        }
         `VBoxManage snapshot restorecurrent $cwd_vm` if $ARGV[1] eq '--revert';
         unlink('FagrantFile');
     }
