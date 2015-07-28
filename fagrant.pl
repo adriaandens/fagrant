@@ -61,9 +61,10 @@ sub up {
 
 sub ssh {
     my $user = $ARGV[1] // "fagrant"; # http://www.effectiveperlprogramming.com/2010/10/set-default-values-with-the-defined-or-operator/
+    my $keyfile = $user eq 'vagrant' ? $ENV{HOME} . '/.vagrant.d/insecure_private_key' : $ENV{HOME} . '/.ssh/fagrant';
     my @sshrules = map {/host port = (\d+),/;$1} grep {/NIC \d+ Rule.+guest port = 22/} `VBoxManage showvminfo $cwd_vm`;
     if($cwd_vm && vm_state($cwd_vm, 'running')) {
-        system("ssh -q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $ENV{HOME}/.ssh/id_rsa $user\@localhost -p " . $sshrules[0]);
+        system("ssh -q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $keyfile $user\@localhost -p " . $sshrules[0]);
     }
 }
 
