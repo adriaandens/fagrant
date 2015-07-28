@@ -1,6 +1,6 @@
 # Fagrant
 
-Vagrant is slow, bloated and has the weirdest problems (with Virtualbox). Inspired by https://github.com/p8952/bocker/, I created fagrant as a "100 lines of code" script to implement (part of) the functionality of Vagrant.
+Vagrant is slow, bloated and has [quite some issues](https://github.com/mitchellh/vagrant/issues). Inspired by [Bocker](https://github.com/p8952/bocker/), I created fagrant as a "100 lines of code" script to implement the functionality of Vagrant, which I mostly use.
 
 > Top definition: Fagrant
 > 
@@ -24,10 +24,11 @@ Currently, the following functionality is implemented in fagrant.
   - Mounts current working directory on the VM
   - Halting the VM
   - Destroying the VM
+  - Reverting the VM to last snapshot
 
 ## How to use
 
-For ease of use, fagrant utilises the same vocabulary as vagrant. It always uses the current working directory to initialise the environment (i.e. creating a FagrantFile).
+For ease of use, fagrant utilises the same vocabulary as vagrant. It always uses the current working directory to initialise the environment (i.e. creating a `FagrantFile`).
 
 To create a clone from an existing VM in your Virtualbox:
 ```
@@ -36,52 +37,42 @@ $ fagrant up
 $ fagrant ssh
 ```
 
-If you want to use the VM as is but just have the benefits of using fagrant:
-```
-$ echo VMname > FagrantFile
-$ fagrant up
-$ fagrant ssh
-```
+As a feature for lazy people as myself, when SSH'ing as the vagrant user - Yes, **v**agrant - the insecure vagrant private key is used to perform passwordless login.
 
-And shutting down:
+If you want to use an existing VM as a fagrant VM:
+```
+$ echo "VM name" > FagrantFile
+$ fagrant up
+$ fagrant ssh root
+```
+Notice that we login with the user root. No need to create the fagrant user to get up and running.
+
+And shutting down (use `--force` to pull the "plug"):
 ```
 $ fagrant halt
 ```
 
-Shutting down and deleting the VM:
+Shutting down and deleting the VM (use --revert to rollback to snapshot instead of deleting VM):
 ```
 $ fagrant destroy
 ```
 
-## Creating Fagrant boxes
+## Creating fagrant compatible VMs
 
-To have a good experience with Fagrant, you might have to modify your VM slightly. For example, SSH'ing into the VM is only possible if the default public key (id_rsa.pub) is an authorised key on the VM. If you create the fagrant user, consider giving it sudo rights without password confirmation, as such:
-```
-$ visudo
-%admin ALL=(ALL) NOPASSWD: ALL
-```
+  - Create a fagrant user (and give sudo rights)
+  - Install fagrant public key into VM
+  - Install VirtualBox Guest Additions
+  - Add fagrant user to vboxsf group
+  - Set default mount point to /fagrant/
+  - Load VirtualBox modules on boot
+  - Enable auto-mounting of shared folder on login (put it in .bashrc)
 
-where "admin" is the group name of which fagrant is a member; for completeness sake:
-```
-# groupadd admin
-# useradd -m -g admin -s /bin/bash fagrant
-# usermod -a -G users fagrant
-# usermod -a -G vboxsf fagrant
-# passwd fagrant
-```
-
-To mount the current working directory into the fagrant VM, you'll have to install the Virtualbox Guest Additions. To make your life, once again, easier:
-```
-# pacman -S virtualbox-guest-utils
-# mkdir /fagrant
-# VBoxControl guestproperty set /VirtualBox/GuestAdd/SharedFolders/MountDir /fagrant/
-# echo "sudo mount -t vboxsf guestfolder /fagrant" >> /home/fagrant/.bashrc
-# echo "vboxguest" > /etc/modules-load.d/virtualbox.conf 
-# echo "vboxsf" >> /etc/modules-load.d/virtualbox.conf 
-```
+See `makeFagrantCompatible.sh` as an example of commands to execute. They're pretty similar to what one has to do to create a Vagrant box.
 
 ## TODO
 
-  - Make sure two VMs are not using the same SSH port
-  - Make the SSH key pair configurable?
-  - Login by default as Fagrant user, but use root as backup
+  - Implement (Puppet) provisioning
+
+## Disclaimer
+
+Please don't take this project too Sirius. It was just a fun evening project.
