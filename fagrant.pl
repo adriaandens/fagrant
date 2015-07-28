@@ -12,7 +12,7 @@ if(-e 'FagrantFile') {
         exit 1;
     }
 }
-$ARGV[0] && $ARGV[0] =~ /(add|init|up|ssh|halt|destroy)/ ? $ARGV[0]() : help();
+$ARGV[0] && $ARGV[0] =~ /(init|up|ssh|halt|destroy)/ ? $ARGV[0]() : help();
 
 sub vm_state {
     my ($vm_name, $state) = @_;
@@ -37,13 +37,11 @@ sub init {
         $cwd_vm = $ARGV[1] . "_" . time();
         print "Cloning VM with name '$cwd_vm'.\n";
         print `VBoxManage clonevm $ARGV[1] --name $cwd_vm`;
-        my @vmfolder = `VBoxManage list systemproperties`;
-        my @vmdir = map {/Default machine folder:\s+(.+)$/;$1} grep {/^Default machine folder:/} @vmfolder;
-        my $vmd = $vmdir[0];
-        #my $vmd = ${map {/Default machine folder:\s+(.+)$/;$1} grep {/^Default machine folder:/} `VBoxManage list systemproperties`}[0];
-        print `VBoxManage registervm "${vmd}/${cwd_vm}/${cwd_vm}.vbox"`;
+        my @vmdir = map {/Default machine folder:\s+(.+)$/;$1} grep {/^Default machine folder:/} `VBoxManage list systemproperties`;
+        my $vm_location = $vmdir[0] . '/' . $cwd_vm . '/' . $cwd_vm . '.vbox';
+        print `VBoxManage registervm "$vm_location"`;
         
-        open(FH, "> FagrantFile") and print FH $cwd_name and close(FH);
+        open(FH, "> FagrantFile") and print FH "$cwd_vm" and close(FH);
     } else {
         print "That VM doesn't exist...\n";
     }
@@ -51,7 +49,9 @@ sub init {
 
 sub up {
     if($cwd_vm) {
-        `VBoxManage modifyvm "$cwd_vm" --natpf1 "guestssh,tcp,,2222,,22" > /dev/null 2>&1`;
+        my $port = 2000 + int(rand(1000));
+        `VBoxManage modifyvm "$cwd_vm" --natpf1 delete "guestssh" > /dev/null 2>&1`; # Delete old rule
+        `VBoxManage modifyvm "$cwd_vm" --natpf1 "guestssh,tcp,,$port,,22" > /dev/null 2>&1`;
         `VBoxManage sharedfolder add "$cwd_vm" --name "guestfolder" --hostpath $ENV{PWD} --automount > /dev/null 2>&1`;
         print "Booting VM...\n";
         system("VBoxHeadless --startvm \"$cwd_vm\" > /dev/null 2>&1 &");
@@ -60,31 +60,36 @@ sub up {
 }
 
 sub ssh {
+    my $user = $ARGV[1] // "fagrant"; # http://www.effectiveperlprogramming.com/2010/10/set-default-values-with-the-defined-or-operator/
+    my @sshrules = map {/host port = (\d+),/;$1} grep {/NIC \d+ Rule.+guest port = 22/} `VBoxManage showvminfo $cwd_vm`;
     if($cwd_vm && vm_state($cwd_vm, 'running')) {
-        system("ssh -q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $ENV{HOME}/.ssh/id_rsa fagrant\@localhost -p 2222");
+        system("ssh -q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $ENV{HOME}/.ssh/id_rsa $user\@localhost -p " . $sshrules[0]);
     }
 }
 
 sub halt {
+    my $method = $ARGV[1] eq '--force' ? 'poweroff' : 'acpipowerbutton';
     if($cwd_vm && vm_state($cwd_vm, 'running')) {
-        `VBoxManage controlvm $cwd_vm poweroff`;
+        `VBoxManage controlvm "$cwd_vm" $method`;
     }
 }
 
 sub destroy {
     if($cwd_vm) {
         halt() if vm_state($cwd_vm, 'running');
-        `VBoxManage unregistervm $cwd_vm --delete`;
+        `VBoxManage unregistervm $cwd_vm --delete` if not defined $ARGV[1];
+        `VBoxManage snapshot restorecurrent $cwd_vm` if $ARGV[1] eq '--revert';
         unlink('FagrantFile');
     }
 }
 
 sub help {
-    print "\nFagRant - does what vagrant does, only in 100 loc.\n\n";
+    print "\nFagrant - does what vagrant does, only in 100 loc.\n\n";
     print "\t$0 init <VM name> - Initialize new VM in current working directory, cloned from <VM name>\n";
     print "\t$0 up - Boot the VM\n";
-    print "\t$0 ssh - SSH into the box\n";
+    print "\t$0 ssh <user> - SSH into the box\n";
     print "\t$0 halt - Halt the VM\n";
     print "\t$0 destroy - Destroy the VM\n";
+    print "\t$0 destroy --revert - Revert the VM to latest snapshot and remove FagrantFile\n";
     print "\t$0 help - Print this\n\n";
 }
