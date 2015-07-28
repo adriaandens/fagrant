@@ -1,6 +1,6 @@
 # Fagrant
 
-Vagrant is slow, bloated and has [quite some issues](https://github.com/mitchellh/vagrant/issues). Inspired by [Bocker](https://github.com/p8952/bocker/), I created fagrant as a "100 lines of code" script to implement the functionality of Vagrant, which I mostly use.
+Vagrant is slow, bloated and has [quite some issues](https://github.com/mitchellh/vagrant/issues). Inspired by [Bocker](https://github.com/p8952/bocker/), I created fagrant as a "100 lines of code" script to implement the functionality of Vagrant that I mostly use.
 
 > Top definition: Fagrant
 > 
@@ -52,7 +52,7 @@ And shutting down (use `--force` to pull the "plug"):
 $ fagrant halt
 ```
 
-Shutting down and deleting the VM (use --revert to rollback to snapshot instead of deleting VM):
+Shutting down and deleting the VM (use `--revert` to rollback to snapshot instead of deleting VM):
 ```
 $ fagrant destroy
 ```
@@ -63,7 +63,7 @@ $ fagrant destroy
   - Install fagrant public key into VM
   - Install VirtualBox Guest Additions
   - Add fagrant user to vboxsf group
-  - Set default mount point to /fagrant/
+  - Create directory /fagrant/ and set default mount point to /fagrant/
   - Load VirtualBox modules on boot
   - Enable auto-mounting of shared folder on login (put it in .bashrc)
 
