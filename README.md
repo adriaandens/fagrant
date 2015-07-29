@@ -1,6 +1,6 @@
 # Fagrant
 
-Vagrant is slow, bloated and has [quite some issues](https://github.com/mitchellh/vagrant/issues) as a result. Inspired by [Bocker](https://github.com/p8952/bocker/), I created fagrant as a "100 lines of code" script to implement the functionality of Vagrant that I mostly use. If you're a very light Vagrant user, like me, than you might actually find this useful.
+Vagrant is slow, bloated and has [quite some issues](https://github.com/mitchellh/vagrant/issues) as a result. Inspired by [Bocker](https://github.com/p8952/bocker/), I created fagrant as a "100 lines of code" script to implement the functionality of Vagrant that I mostly use. If you're a very light Vagrant user, like me, then you might actually find this useful.
 
 
 > Top definition: Fagrant
