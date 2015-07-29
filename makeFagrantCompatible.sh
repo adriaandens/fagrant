@@ -26,3 +26,6 @@ chown fagrant:users /home/fagrant/.ssh/authorized_keys
 
 # Add "%admin ALL=(ALL) NOPASSWD: ALL"
 visudo
+
+# Install puppet
+pacman -S puppet

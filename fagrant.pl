@@ -13,21 +13,13 @@ if(-e 'FagrantFile') {
         exit 1;
     }
 }
-my $subroutines = {'init' => \&init, 'up' => \&up, 'ssh' => \&ssh, 'halt' => \&halt, 'destroy' => \&destroy};
-$ARGV[0] && $ARGV[0] =~ /(init|up|ssh|halt|destroy)/ ? $subroutines->{$ARGV[0]}->() : help();
+my $subroutines = {'init' => \&init, 'up' => \&up, 'provision' => \&provision, 'ssh' => \&ssh, 'halt' => \&halt, 'destroy' => \&destroy};
+$ARGV[0] && $ARGV[0] =~ /(init|up|provision|ssh|halt|destroy)/ ? $subroutines->{$ARGV[0]}->() : help();
 
 sub vm_state {
     my ($vm_name, $state) = @_;
-
-    my @lines;
-    if($state eq 'exists') {
-        @lines = `VBoxManage list vms`;
-    } elsif($state eq 'running') {
-        @lines = `VBoxManage list runningvms`;
-    }
-
-    my $found = grep {/^"(.+)"\s{1}[^"]+$/;$vm_name eq $1} @lines;
-    return $found;
+    return grep {/^"(.+)"\s{1}[^"]+$/;$vm_name eq $1} `VBoxManage list vms` if $state eq 'exists';
+    return grep {/^"(.+)"\s{1}[^"]+$/;$vm_name eq $1} `VBoxManage list runningvms` if $state eq 'running';
 }
 
 sub init {
@@ -61,11 +53,19 @@ sub up {
     }
 }
 
+sub provision {
+    if($cwd_vm && vm_state($cwd_vm, 'running')) {
+        ssh("sudo mount -t vboxsf -o uid=\$(id -u),gid=\$(id -g) guestfolder /fagrant");
+        ssh("puppet apply /fagrant/manifests/default.pp");
+    }
+}
+
 sub ssh {
     my $user = $ARGV[1] // "fagrant";
+    my $command = $_[0] // "";
     my $keyfile = $user eq 'vagrant' ? $ENV{HOME} . '/.vagrant.d/insecure_private_key' : $ENV{HOME} . '/.ssh/fagrant';
     my @sshrules = map {/host port = (\d+),/;$1} grep {/NIC \d+ Rule.+guest port = 22/} `VBoxManage showvminfo "$cwd_vm"`;
-    system("ssh -q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $keyfile $user\@localhost -p " . $sshrules[0]) if $cwd_vm && vm_state($cwd_vm, 'running');
+    system("ssh -q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $keyfile $user\@localhost -p $sshrules[0] $command") if $cwd_vm && vm_state($cwd_vm, 'running');
 }
 
 sub halt {
@@ -78,8 +78,7 @@ sub destroy {
         halt() if vm_state($cwd_vm, 'running');
         if(not defined $ARGV[1]) {
             print "Not so fast José! U sure? "; # I know myself, I need this.
-            chomp(my $answer = <STDIN>);
-            `VBoxManage unregistervm "$cwd_vm" --delete` if $answer =~ /^ye?s?/i;
+            `VBoxManage unregistervm "$cwd_vm" --delete` if <STDIN> =~ /^ye?s?/i;
         }
         `VBoxManage snapshot restorecurrent "$cwd_vm"` if $ARGV[1] && $ARGV[1] eq '--revert';
         unlink('FagrantFile');
@@ -90,6 +89,7 @@ sub help {
     print "\nFagrant - does what vagrant does, only in 100 loc.\n\n";
     print "\t$0 init <VM name> - Initialize new VM in current working directory, cloned from <VM name>\n";
     print "\t$0 up - Boot the VM\n";
+    print "\t$0 provision - Provision the VM\n";
     print "\t$0 ssh <user> - SSH into the box\n";
     print "\t$0 halt - Halt the VM\n";
     print "\t$0 destroy - Destroy the VM\n";
