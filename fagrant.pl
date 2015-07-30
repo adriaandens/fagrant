@@ -3,12 +3,12 @@ use strict;
 use warnings;
 
 print "\nPlease install VirtualBox first...\n\n" if system("VBoxManage -v > /dev/null 2>&1") != 0;
-my $cwd_vm;
+my $vm_name;
 if(-e 'FagrantFile') {
     open(FH, '< FagrantFile');
-    chomp($cwd_vm = <FH>);
+    chomp($vm_name = <FH>);
     close(FH);
-    if(!vm_state($cwd_vm, 'exists')) {
+    if(!vm_state($vm_name, 'exists')) {
         print "VM from FagrantFile doesn't exist. :x\n";
         exit 1;
     }
@@ -23,64 +23,63 @@ sub vm_state {
 }
 
 sub init {
-    if($cwd_vm) {
+    if($vm_name) {
         print "Wow wow, there's already a fagrant VM for this directory?! Are you crazy?\n";
         return;
     }
     if(vm_state($ARGV[1], "exists")) {
-        $cwd_vm = $ARGV[1] . "_" . time();
-        print "Cloning VM with name '$cwd_vm'.\n";
-        print `VBoxManage clonevm $ARGV[1] --name "$cwd_vm"`;
-        my @vmdir = map {/Default machine folder:\s+(.+)$/;$1} grep {/^Default machine folder:/} `VBoxManage list systemproperties`;
-        my $vm_location = $vmdir[0] . '/' . $cwd_vm . '/' . $cwd_vm . '.vbox';
+        $vm_name = $ARGV[1] . "_" . time();
+        print "Cloning VM with name '$vm_name'.\n";
+        print `VBoxManage clonevm $ARGV[1] --name "$vm_name"`;
+        my $vm_directory = shift [ map {/Default machine folder:\s+(.+)$/;$1} grep {/^Default machine folder:/} `VBoxManage list systemproperties` ];
+        my $vm_location = $vm_directory . '/' . $vm_name . '/' . $vm_name . '.vbox';
         print `VBoxManage registervm "$vm_location"`;
         
-        open(FH, "> FagrantFile") and print FH $cwd_vm and close(FH);
+        open(FH, "> FagrantFile") and print FH $vm_name and close(FH);
     } else {
-        print "That VM doesn't exist...\n";
+        print "Sorry, couldn't find a VM with the name '$vm_name'.\n";
     }
 }
 
 sub up {
-    if($cwd_vm) {
+    if($vm_name) {
         my $port = 2000 + int(rand(1000));
-        `VBoxManage modifyvm "$cwd_vm" --natpf1 delete "guestssh" > /dev/null 2>&1`; # Delete old rule
-        `VBoxManage modifyvm "$cwd_vm" --natpf1 "guestssh,tcp,,$port,,22" > /dev/null 2>&1`;
-        `VBoxManage sharedfolder add "$cwd_vm" --name "guestfolder" --hostpath $ENV{PWD} --automount > /dev/null 2>&1`;
+        `VBoxManage modifyvm "$vm_name" --natpf1 delete "guestssh" > /dev/null 2>&1`;
+        `VBoxManage modifyvm "$vm_name" --natpf1 "guestssh,tcp,,$port,,22" > /dev/null 2>&1`;
+        `VBoxManage sharedfolder remove "$vm_name" --name guestfolder > /dev/null 2>&1`;
+        `VBoxManage sharedfolder add "$vm_name" --name "guestfolder" --hostpath $ENV{PWD} --automount > /dev/null 2>&1`;
         print "Booting VM...\n";
-        system("VBoxHeadless --startvm \"$cwd_vm\" > /dev/null 2>&1 &");
+        system("VBoxHeadless --startvm \"$vm_name\" > /dev/null 2>&1 &");
         sleep(15); # Find a better way?
     }
 }
 
 sub provision {
-    if($cwd_vm && vm_state($cwd_vm, 'running')) {
-        ssh("sudo mount -t vboxsf -o uid=\$(id -u),gid=\$(id -g) guestfolder /fagrant");
-        ssh("puppet apply /fagrant/manifests/default.pp");
-    }
+    ssh("sudo mount -t vboxsf -o uid=\$(id -u),gid=\$(id -g) guestfolder /fagrant");
+    ssh("puppet apply /fagrant/manifests/default.pp");
 }
 
 sub ssh {
     my $user = $ARGV[1] // "fagrant";
     my $command = $_[0] // "";
     my $keyfile = $user eq 'vagrant' ? $ENV{HOME} . '/.vagrant.d/insecure_private_key' : $ENV{HOME} . '/.ssh/fagrant';
-    my @sshrules = map {/host port = (\d+),/;$1} grep {/NIC \d+ Rule.+guest port = 22/} `VBoxManage showvminfo "$cwd_vm"`;
-    system("ssh -q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $keyfile $user\@localhost -p $sshrules[0] $command") if $cwd_vm && vm_state($cwd_vm, 'running');
+    my $ssh_port = shift [ map {/host port = (\d+),/;$1} grep {/NIC \d+ Rule.+guest port = 22/} `VBoxManage showvminfo "$vm_name"` ];
+    system("ssh -q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $keyfile $user\@localhost -p $ssh_port $command") if $vm_name && vm_state($vm_name, 'running');
 }
 
 sub halt {
     my $method = $ARGV[1] && $ARGV[1] eq '--force' ? 'poweroff' : 'acpipowerbutton';
-    `VBoxManage controlvm "$cwd_vm" $method` if $cwd_vm && vm_state($cwd_vm, 'running');
+    `VBoxManage controlvm "$vm_name" $method` if $vm_name && vm_state($vm_name, 'running');
 }
 
 sub destroy {
-    if($cwd_vm) {
-        halt() if vm_state($cwd_vm, 'running');
+    if($vm_name) {
+        halt() if vm_state($vm_name, 'running');
         if(not defined $ARGV[1]) {
             print "Not so fast José! U sure? "; # I know myself, I need this.
-            `VBoxManage unregistervm "$cwd_vm" --delete` if <STDIN> =~ /^ye?s?/i;
+            `VBoxManage unregistervm "$vm_name" --delete` if <STDIN> =~ /^ye?s?/i;
         }
-        `VBoxManage snapshot restorecurrent "$cwd_vm"` if $ARGV[1] && $ARGV[1] eq '--revert';
+        `VBoxManage snapshot restorecurrent "$vm_name"` if $ARGV[1] && $ARGV[1] eq '--revert';
         unlink('FagrantFile');
     }
 }
