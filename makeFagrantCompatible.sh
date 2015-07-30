@@ -9,7 +9,7 @@ pacman -S virtualbox-guest-utils
 mkdir /fagrant
 chown fagrant:users /fagrant
 VBoxControl guestproperty set /VirtualBox/GuestAdd/SharedFolders/MountDir /fagrant/
-echo "sudo mount -t vboxsf -o uid=$(id -u),gid=$(id -g) guestfolder /fagrant" >> /home/fagrant/.bashrc
+echo "sudo mount -t vboxsf -o uid=\$(id -u),gid=\$(id -g) guestfolder /fagrant" >> /home/fagrant/.bashrc
 echo "vboxguest" > /etc/modules-load.d/virtualbox.conf 
 echo "vboxsf" >> /etc/modules-load.d/virtualbox.conf 
 usermod -a -G vboxsf fagrant
