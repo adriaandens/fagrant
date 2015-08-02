@@ -4,15 +4,16 @@ use warnings;
 
 print "\nPlease install VirtualBox first...\n\n" if system("VBoxManage -v > /dev/null 2>&1") != 0;
 my $vm_name;
-if(-e 'FagrantFile') {
-    open(FH, '< FagrantFile');
-    chomp($vm_name = <FH>);
-    close(FH);
-    if(!vm_state($vm_name, 'exists')) {
-        print "VM from FagrantFile doesn't exist. :x\n";
-        exit 1;
-    }
+my $filename = 'FagrantFile';
+if ( -e $filename ) {
+    open my $fh, '<', $filename or die "Can't open $filename: $!\n";
+    chomp( $vm_name = <$fh> );
+    close $fh or die "Can't close $filename: $!\n";
+
+    vm_state( $vm_name, 'exists' )
+        or die "VM from $filename doesn't exist. :x\n";
 }
+
 my $subroutines = {'init' => \&init, 'up' => \&up, 'provision' => \&provision, 'ssh' => \&ssh, 'halt' => \&halt, 'destroy' => \&destroy};
 $ARGV[0] && $ARGV[0] =~ /(init|up|provision|ssh|halt|destroy)/ ? $subroutines->{$ARGV[0]}->() : help();
 
@@ -23,35 +24,36 @@ sub vm_state {
 }
 
 sub init {
-    if($vm_name) {
-        print "Wow wow, there's already a fagrant VM for this directory?! Are you crazy?\n";
-        return;
-    }
-    if(vm_state($ARGV[1], "exists")) {
-        $vm_name = $ARGV[1] . "_" . time();
-        print "Cloning VM with name '$vm_name'.\n";
-        print `VBoxManage clonevm $ARGV[1] --name "$vm_name"`;
-        my $vm_directory = shift [ map {/Default machine folder:\s+(.+)$/;$1} grep {/^Default machine folder:/} `VBoxManage list systemproperties` ];
-        my $vm_location = $vm_directory . '/' . $vm_name . '/' . $vm_name . '.vbox';
-        print `VBoxManage registervm "$vm_location"`;
-        
-        open(FH, "> FagrantFile") and print FH $vm_name and close(FH);
-    } else {
+    $vm_name
+        and die "Wow wow, there's already a fagrant VM for this directory?! Are you crazy?\n";
+
+    if ( !vm_state($ARGV[1], 'exists') ) {
         print "Sorry, couldn't find a VM with the name '$vm_name'.\n";
+        exit;
     }
+
+    $vm_name = $ARGV[1] . "_" . time();
+    print "Cloning VM with name '$vm_name'.\n";
+    print `VBoxManage clonevm $ARGV[1] --name "$vm_name"`;
+    my $vm_directory = shift [ map {/Default machine folder:\s+(.+)$/;$1} grep {/^Default machine folder:/} `VBoxManage list systemproperties` ];
+    my $vm_location = $vm_directory . '/' . $vm_name . '/' . $vm_name . '.vbox';
+    print `VBoxManage registervm "$vm_location"`;
+
+    open my $fh, '>', $filename or die "Can't open $filename: $!\n";
+    print {$fh} $vm_name;
+    close $fh or die "Can't close $filename: $!\n";
 }
 
 sub up {
-    if($vm_name) {
-        my $port = 2000 + int(rand(1000));
-        `VBoxManage modifyvm "$vm_name" --natpf1 delete "guestssh" > /dev/null 2>&1`;
-        `VBoxManage modifyvm "$vm_name" --natpf1 "guestssh,tcp,,$port,,22" > /dev/null 2>&1`;
-        `VBoxManage sharedfolder remove "$vm_name" --name guestfolder > /dev/null 2>&1`;
-        `VBoxManage sharedfolder add "$vm_name" --name "guestfolder" --hostpath $ENV{PWD} --automount > /dev/null 2>&1`;
-        print "Booting VM...\n";
-        system("VBoxHeadless --startvm \"$vm_name\" > /dev/null 2>&1 &");
-        sleep(15); # Find a better way?
-    }
+    $vm_name or return;
+    my $port = 2000 + int(rand(1000));
+    `VBoxManage modifyvm "$vm_name" --natpf1 delete "guestssh" > /dev/null 2>&1`;
+    `VBoxManage modifyvm "$vm_name" --natpf1 "guestssh,tcp,,$port,,22" > /dev/null 2>&1`;
+    `VBoxManage sharedfolder remove "$vm_name" --name guestfolder > /dev/null 2>&1`;
+    `VBoxManage sharedfolder add "$vm_name" --name "guestfolder" --hostpath $ENV{PWD} --automount > /dev/null 2>&1`;
+    print "Booting VM...\n";
+    system("VBoxHeadless --startvm \"$vm_name\" > /dev/null 2>&1 &");
+    sleep(15); # Find a better way?
 }
 
 sub provision {
@@ -73,15 +75,14 @@ sub halt {
 }
 
 sub destroy {
-    if($vm_name) {
-        halt() if vm_state($vm_name, 'running');
-        if(not defined $ARGV[1]) {
-            print "Not so fast José! U sure? "; # I know myself, I need this.
-            `VBoxManage unregistervm "$vm_name" --delete` if <STDIN> =~ /^ye?s?/i;
-        }
-        `VBoxManage snapshot restorecurrent "$vm_name"` if $ARGV[1] && $ARGV[1] eq '--revert';
-        unlink('FagrantFile');
+    $vm_name or return;
+    halt() if vm_state($vm_name, 'running');
+    if(not defined $ARGV[1]) {
+        print "Not so fast José! U sure? "; # I know myself, I need this.
+        `VBoxManage unregistervm "$vm_name" --delete` if <STDIN> =~ /^ye?s?/i;
     }
+    `VBoxManage snapshot restorecurrent "$vm_name"` if $ARGV[1] && $ARGV[1] eq '--revert';
+    unlink('FagrantFile');
 }
 
 sub help {
