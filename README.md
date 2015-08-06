@@ -24,6 +24,7 @@ Currently, the following functionality is implemented in fagrant.
   - Provisioning using Puppet (Apply)
   - SSH into the VM
   - Mounts current working directory on the VM
+  - [Bake](https://cloudnative.io/bakery/) the current state of the VM
   - Halting the VM
   - Destroying the VM
   - Reverting the VM to last snapshot
@@ -59,14 +60,19 @@ $ fagrant destroy
 
 Because your time is valuable, fagrant allows the usage of an existing VM without cloning, which omits the time consuming cloning step.
 ```
-$ echo "VM name" > FagrantFile
-$ fagrant up
+$ fagrant up <VM name>
 $ fagrant ssh root
 ```
 
-Notice that we can login with other users as well...
+Another feature is ["baking"](https://cloudnative.io/bakery/), where we _bake_ and store the current state of the VM. This allows for easy distribution and recreation of the exact same state as currently in the fagrant VM. For example:
+```
+$ fagrant provision
+$ # Do some other stuff
+$ fagrant bake "v1.1.0" "Application now supports awesome feature X!"
+```
+<sub><sup>This is just a fancy (new?) devops term for snapshotting...</sup></sub>
 
-When you're finished, just revert the fagrant VM to its original state by rolling back to the last snapshot:
+When you're finished, just revert the fagrant VM to its original state by rolling back to the last bake (=snapshot):
 ```
 $ fagrant destroy --revert
 ```
