@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 print "\nPlease install VirtualBox first...\n\n" if system("VBoxManage -v > /dev/null 2>&1") != 0;
-my $vm_name;
+my $vm_name;my $guest_os;
 my $filename = 'FagrantFile';
 if ( -e $filename ) {
     open my $fh, '<', $filename or die "Can't open $filename: $!\n";
@@ -44,17 +44,19 @@ sub up {
         print {$fh} $vm_name;
         close $fh or die "Can't close $filename: $!\n";
     } 
-
-    $vm_name or return;
+    $vm_name or die "Either use 'fagrant up <vm_name>' or 'fagrant init <vm_name> && fagrant up'.\n";
+    $guest_os = `VBoxManage showvminfo $vm_name | grep 'Guest OS'`;
+    print "Guest OS: $guest_os\n";
     my $port = 2000 + int(rand(1000));
 
-    `VBoxManage modifyvm "$vm_name" --natpf1 delete "guestssh" > /dev/null 2>&1`;
-    `VBoxManage modifyvm "$vm_name" --natpf1 "guestssh,tcp,,$port,,22" > /dev/null 2>&1`;
+    `VBoxManage modifyvm "$vm_name" --natpf1 delete "guestssh" > /dev/null 2>&1` if $guest_os !~ /windows/i;
+    `VBoxManage modifyvm "$vm_name" --natpf1 "guestssh,tcp,,$port,,22" > /dev/null 2>&1` if $guest_os !~ /windows/i;
     `VBoxManage sharedfolder remove "$vm_name" --name guestfolder > /dev/null 2>&1`;
     `VBoxManage sharedfolder add "$vm_name" --name "guestfolder" --hostpath $ENV{PWD} --automount > /dev/null 2>&1`;
+    my $window_type = ($guest_os =~ /windows/i) ? 'gui' : 'headless';
+    print "Window type: $window_type\n";
     print "Booting VM...\n";
-    system("VBoxHeadless --startvm \"$vm_name\" > /dev/null 2>&1 &");
-    sleep(15); # Find a better way?
+    system("VBoxManage startvm --type $window_type \"$vm_name\" > /dev/null 2>&1 &");
 }
 
 sub provision {
