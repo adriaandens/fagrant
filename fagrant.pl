@@ -10,8 +10,8 @@ if ( -e $filename ) {
     chomp( $vm_name = <$fh> );
     close $fh or die "Can't close $filename: $!\n";
     vm_state( $vm_name, 'exists' ) or die "VM from $filename doesn't exist. :x\n";
+    $guest_os = `VBoxManage showvminfo $vm_name | grep 'Guest OS'`;
 }
-
 my $subroutines = {'init' => \&init, 'up' => \&up, 'provision' => \&provision, 'ssh' => \&ssh, 'bake' => \&bake, 'halt' => \&halt, 'destroy' => \&destroy};
 $ARGV[0] && $ARGV[0] =~ /(init|up|provision|ssh|bake|halt|destroy)/ ? $subroutines->{$ARGV[0]}->() : help();
 
@@ -40,13 +40,12 @@ sub init {
 sub up {
     if( !$vm_name && $ARGV[1] && vm_state($ARGV[1], 'exists') ) {
         $vm_name = $ARGV[1];
+        $guest_os = `VBoxManage showvminfo $vm_name | grep 'Guest OS'`;
         open my $fh, '>', $filename or die "Can't open $filename: $!\n";
         print {$fh} $vm_name;
         close $fh or die "Can't close $filename: $!\n";
     } 
     $vm_name or die "Either use 'fagrant up <vm_name>' or 'fagrant init <vm_name> && fagrant up'.\n";
-    $guest_os = `VBoxManage showvminfo $vm_name | grep 'Guest OS'`;
-    print "Guest OS: $guest_os\n";
     my $port = 2000 + int(rand(1000));
 
     `VBoxManage modifyvm "$vm_name" --natpf1 delete "guestssh" > /dev/null 2>&1` if $guest_os !~ /windows/i;
@@ -54,7 +53,6 @@ sub up {
     `VBoxManage sharedfolder remove "$vm_name" --name guestfolder > /dev/null 2>&1`;
     `VBoxManage sharedfolder add "$vm_name" --name "guestfolder" --hostpath $ENV{PWD} --automount > /dev/null 2>&1`;
     my $window_type = ($guest_os =~ /windows/i) ? 'gui' : 'headless';
-    print "Window type: $window_type\n";
     print "Booting VM...\n";
     system("VBoxManage startvm --type $window_type \"$vm_name\" > /dev/null 2>&1 &");
 }
@@ -65,7 +63,7 @@ sub provision {
 }
 
 sub ssh {
-    $vm_name or return;
+    ($vm_name && $guest_os !~ /windows/i) or die "Either you haven't called 'fagrant (init|up)' or you trying to ssh to a Windows VM (currently unsupported).\n";
     my $user = $ARGV[1] // "fagrant";
     my $command = $_[0] // "";
     my $keyfile = $user eq 'vagrant' ? $ENV{HOME} . '/.vagrant.d/insecure_private_key' : $ENV{HOME} . '/.ssh/fagrant';
