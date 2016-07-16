@@ -29,6 +29,8 @@ Currently, the following functionality is implemented in fagrant.
   - Destroying the VM
   - Reverting the VM to last snapshot
 
+[![asciicast](https://asciinema.org/a/79973.png)](https://asciinema.org/a/79973)
+
 ## How to use
 
 For ease of use, fagrant utilises the same vocabulary as Vagrant. It uses the current working directory to initialise the environment (i.e. creating a `FagrantFile`) and shares the directory with the virtual machine as a shared folder.
